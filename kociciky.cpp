@@ -55,9 +55,76 @@ std::ostream& operator << (std::ostream& out, Result r) {
 
 #endif
 
+using namespace std;
 
-Result find_lost_cat(const Map& map) {
+void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<Corridor> & corridors, std::vector<bool> & visited)
+{
+  visited.at(actual_node) = true;
+  for (const auto & corridor: corridors)
+  {
+    if (corridor.second == actual_node && (!visited.at(corridor.first)))
+    {     
+      DFS_fill_Z(corridor.first, Z, corridors, visited);
+    }
+  }
+  Z.push_front(actual_node);
+}
+
+void DFS_assign_components(size_t actual_node, const std::vector<Corridor> & corridors, std::vector<int> & nodes_component)
+{
+  for (const auto & corridor: corridors)
+  {
+    if (corridor.first == actual_node && nodes_component.at(corridor.second) == -1)
+    {
+      nodes_component.at(corridor.second) = nodes_component.at(corridor.first);
+      DFS_assign_components(corridor.second, corridors, nodes_component);
+    }
+  }
+}
+
+void StronglyConnectedComponents(std::vector<int> & nodes_component, const std::vector<Corridor> & corridors, size_t & amount_of_components)
+{
+  std::deque<size_t> Z;
+  std::vector<bool> visited = std::vector<bool>(nodes_component.size(), false);
+
+  for (size_t i = 0; i < nodes_component.size(); i++)
+  {
+    if (! visited.at(i))
+    {
+      DFS_fill_Z(i, Z, corridors, visited);
+    }
+  }
+
+  while (! Z.empty())
+  {
+    size_t actual = Z.front();
+    Z.pop_front();
+    if (nodes_component.at(actual) == -1) // undefined 
+    { 
+      nodes_component.at(actual) = amount_of_components++;
+      DFS_assign_components(actual, corridors, nodes_component);
+    }
+  }
+}
+
+
+
+void find_lost_cat(const Map& map) {
   // TODO
+
+  std::vector<int> nodes_component = std::vector<int>(map.food.size(), -1);
+  size_t amount_components = 0;
+
+  StronglyConnectedComponents(nodes_component, map.corridors, amount_components);
+  
+  cout << "amount of components: " <<  amount_components << endl;
+  cout << "components: " << endl;
+
+  for(size_t i = 0; i < nodes_component.size(); i++)
+  {
+    cout << "node: " << i << ", component: " << nodes_component.at(i) << endl;
+  }
+
 }
 
 
@@ -174,13 +241,34 @@ const std::vector<std::pair<Result, Map>> test_data = {
 };
 
 int main() {
-  for (const auto& [ exp_res,  M ] : test_data) {
-    Result stud_res = find_lost_cat(M);
-    if (! (stud_res == exp_res))
+
+  find_lost_cat(Map{ 0, { 1 },
+    { 0, 1, 1, 2, 1 },
     {
-        std::cout << "Fail: " << exp_res << " != " << stud_res << std::endl;
+      { 0, 2 }, { 0, 3 },
+      { 2, 4 }, { 3, 4 },
+      { 0, 1 }, { 4, 1 }
     }
-  }
+  });
+  
+  
+  // { { 1, 4 }, Map{ 0, { 1 },
+  //   { 0, 1, 1, 2, 1 },
+  //   {
+  //     { 0, 2 }, { 0, 3 },
+  //     { 2, 4 }, { 3, 4 },
+  //     { 0, 1 }, { 4, 1 }
+  //   }
+  // }}
+
+
+  // for (const auto& [ exp_res,  M ] : test_data) {
+  //   Result stud_res = find_lost_cat(M);
+  //   if (! (stud_res == exp_res))
+  //   {
+  //       std::cout << "Fail: " << exp_res << " != " << stud_res << std::endl;
+  //   }
+  // }
 
   return 0;
 }
