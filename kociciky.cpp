@@ -125,6 +125,41 @@ void find_lost_cat(const Map& map) {
     cout << "node: " << i << ", component: " << nodes_component.at(i) << endl;
   }
 
+  std::vector<std::pair<int, int>> components = std::vector<std::pair<int, int>>(amount_components, {0, -1});
+
+  for (size_t i = 0; i < nodes_component.size(); i++)
+  {
+    components.at(nodes_component.at(i)).first += map.food.at(i);
+  }
+
+  std::vector<std::vector<bool>> helper_matrix_connection_added = std::vector<std::vector<bool>>(components.size(), std::vector<bool>(components.size(), false));
+  std::vector<std::pair<size_t, size_t>> inter_component_paths;
+
+  // add connections between the components
+  for (size_t i = 0; i < map.corridors.size(); i++)
+  {
+    size_t node1 = map.corridors.at(i).first;
+    size_t node2 = map.corridors.at(i).second;
+
+    // if they are in the different component and there is not yet a edge between those components add an edge now
+    if (nodes_component.at(node1) != nodes_component.at(node2) && (!helper_matrix_connection_added.at(node1).at(node2)))
+    {
+      helper_matrix_connection_added.at(node1).at(node2) = true; // signalize that an edge has been added between those components
+      inter_component_paths.push_back({nodes_component.at(node1), nodes_component.at(node2)}); 
+    }
+  }
+
+  cout << "print component values" << endl;
+  for (size_t i = 0; i < components.size(); i++)
+  {
+    cout << "comp " << i << ", val: " << components.at(i).first << endl;
+  }
+
+  cout << "print inter component paths" << endl;
+  for (const auto & int_paths: inter_component_paths)
+  {
+    cout << int_paths.first << "->" << int_paths.second << endl;
+  }
 }
 
 
