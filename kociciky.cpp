@@ -107,24 +107,37 @@ void StronglyConnectedComponents(std::vector<int> & nodes_component, const std::
   }
 }
 
+void DFS_components(size_t starting_component, std::vector<std::pair<int, int>> & components, const std::vector<std::pair<size_t, size_t>> & inter_component_paths)
+{
+  std::queue<size_t> que;
+  que.push(starting_component);
+  components.at(starting_component).second = components.at(starting_component).first;
+
+  while(! que.empty())
+  {
+    size_t actual = que.front();
+    que.pop();
+
+    for (const auto & int_cmp_paths: inter_component_paths)
+    {
+      if (int_cmp_paths.first == actual && (components.at(int_cmp_paths.first).second + components.at(int_cmp_paths.second).first) > components.at(int_cmp_paths.second).second)
+      {
+        components.at(int_cmp_paths.second).second = (components.at(int_cmp_paths.first).second + components.at(int_cmp_paths.second).first);
+        que.push(int_cmp_paths.second);
+      }
+    }
+  }  
+  
+}
 
 
-void find_lost_cat(const Map& map) {
+Result find_lost_cat(const Map& map) {
   // TODO
 
   std::vector<int> nodes_component = std::vector<int>(map.food.size(), -1);
   size_t amount_components = 0;
 
   StronglyConnectedComponents(nodes_component, map.corridors, amount_components);
-  
-  cout << "amount of components: " <<  amount_components << endl;
-  cout << "components: " << endl;
-
-  for(size_t i = 0; i < nodes_component.size(); i++)
-  {
-    cout << "node: " << i << ", component: " << nodes_component.at(i) << endl;
-  }
-
   std::vector<std::pair<int, int>> components = std::vector<std::pair<int, int>>(amount_components, {0, -1});
 
   for (size_t i = 0; i < nodes_component.size(); i++)
@@ -142,24 +155,40 @@ void find_lost_cat(const Map& map) {
     size_t node2 = map.corridors.at(i).second;
 
     // if they are in the different component and there is not yet a edge between those components add an edge now
-    if (nodes_component.at(node1) != nodes_component.at(node2) && (!helper_matrix_connection_added.at(node1).at(node2)))
+    size_t comp_node1 = nodes_component.at(node1);
+    size_t comp_node2 = nodes_component.at(node2);
+
+
+    if (comp_node1 != comp_node2 && (!helper_matrix_connection_added.at(comp_node1).at(comp_node2)))
     {
-      helper_matrix_connection_added.at(node1).at(node2) = true; // signalize that an edge has been added between those components
-      inter_component_paths.push_back({nodes_component.at(node1), nodes_component.at(node2)}); 
+      helper_matrix_connection_added.at(comp_node1).at(comp_node2) = true; // signalize that an edge has been added between those components
+      inter_component_paths.push_back({comp_node1, comp_node2}); 
     }
   }
 
-  cout << "print component values" << endl;
-  for (size_t i = 0; i < components.size(); i++)
+
+  DFS_components(nodes_component.at(map.s), components, inter_component_paths);
+
+  unsigned bed_taken = 0;
+  int food_eaten = -1;
+
+  for (const auto & bed: map.beds)
   {
-    cout << "comp " << i << ", val: " << components.at(i).first << endl;
+    if (components.at(nodes_component.at(bed)).second > food_eaten)
+    {
+      bed_taken = bed;
+      food_eaten = components.at(nodes_component.at(bed)).second;
+    }
   }
 
-  cout << "print inter component paths" << endl;
-  for (const auto & int_paths: inter_component_paths)
+  if (food_eaten == -1)
   {
-    cout << int_paths.first << "->" << int_paths.second << endl;
+    return Result{NO_ROOM, 42};
   }
+
+  unsigned food_eaten_conv = (unsigned) food_eaten;
+
+  return Result{bed_taken, food_eaten_conv};
 }
 
 
@@ -277,33 +306,13 @@ const std::vector<std::pair<Result, Map>> test_data = {
 
 int main() {
 
-  find_lost_cat(Map{ 0, { 1 },
-    { 0, 1, 1, 2, 1 },
+  for (const auto& [ exp_res,  M ] : test_data) {
+    Result stud_res = find_lost_cat(M);
+    if (! (stud_res == exp_res))
     {
-      { 0, 2 }, { 0, 3 },
-      { 2, 4 }, { 3, 4 },
-      { 0, 1 }, { 4, 1 }
+        std::cout << "Fail: " << exp_res << " != " << stud_res << std::endl;
     }
-  });
-  
-  
-  // { { 1, 4 }, Map{ 0, { 1 },
-  //   { 0, 1, 1, 2, 1 },
-  //   {
-  //     { 0, 2 }, { 0, 3 },
-  //     { 2, 4 }, { 3, 4 },
-  //     { 0, 1 }, { 4, 1 }
-  //   }
-  // }}
-
-
-  // for (const auto& [ exp_res,  M ] : test_data) {
-  //   Result stud_res = find_lost_cat(M);
-  //   if (! (stud_res == exp_res))
-  //   {
-  //       std::cout << "Fail: " << exp_res << " != " << stud_res << std::endl;
-  //   }
-  // }
+  }
 
   return 0;
 }
