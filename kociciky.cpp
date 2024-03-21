@@ -59,15 +59,32 @@ using namespace std;
 
 void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<Corridor> & corridors, std::vector<bool> & visited)
 {
+  deque<size_t> helper;
+
+  helper.push_front(actual_node);
+
   visited.at(actual_node) = true;
-  for (const auto & corridor: corridors)
+
+  while (! helper.empty())
   {
-    if (corridor.second == actual_node && (!visited.at(corridor.first)))
-    {     
-      DFS_fill_Z(corridor.first, Z, corridors, visited);
+    bool all_visited = true;
+    size_t actual = helper.front();
+    for (const auto & corridor: corridors)
+    {
+        if (corridor.second == actual && (! visited.at(corridor.first)))
+        {
+            visited.at(corridor.first) = true;
+            all_visited = false;
+            helper.push_front(corridor.first);
+            break;
+        }
+    }
+    if (all_visited)
+    {
+        helper.pop_front();
+        Z.push_front(actual);
     }
   }
-  Z.push_front(actual_node);
 }
 
 void DFS_assign_components(size_t actual_node, const std::vector<Corridor> & corridors, std::vector<int> & nodes_component)
