@@ -57,7 +57,7 @@ std::ostream& operator << (std::ostream& out, Result r) {
 
 using namespace std;
 
-void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<Corridor> & corridors, std::vector<bool> & visited)
+void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<std::vector<size_t>> & neighbours, std::vector<bool> & visited)
 {
   deque<size_t> helper;
 
@@ -69,15 +69,15 @@ void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<Co
   {
     bool all_visited = true;
     size_t actual = helper.front();
-    for (const auto & corridor: corridors)
+    for (const auto & neighbour: neighbours.at(actual))
     {
-        if (corridor.second == actual && (! visited.at(corridor.first)))
-        {
-            visited.at(corridor.first) = true;
-            all_visited = false;
-            helper.push_front(corridor.first);
-            break;
-        }
+      if (! visited.at(neighbour))
+      {
+        visited.at(neighbour) = true;
+        all_visited = false;
+        helper.push_front(neighbour);
+        break;
+      }
     }
     if (all_visited)
     {
@@ -87,14 +87,22 @@ void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<Co
   }
 }
 
-void DFS_assign_components(size_t actual_node, const std::vector<Corridor> & corridors, std::vector<int> & nodes_component)
+void DFS_assign_components(size_t actual_node, const std::vector<std::vector<size_t>> & neighbours, std::vector<int> & nodes_component)
 {
-  for (const auto & corridor: corridors)
+  queue<size_t> que;
+  que.push(actual_node);
+
+  while(! que.empty())
   {
-    if (corridor.first == actual_node && nodes_component.at(corridor.second) == -1)
+    size_t front = que.front();
+    que.pop();
+    for (const auto & neighbour : neighbours.at(front))
     {
-      nodes_component.at(corridor.second) = nodes_component.at(corridor.first);
-      DFS_assign_components(corridor.second, corridors, nodes_component);
+      if (nodes_component.at(neighbour) == -1)
+      {
+        nodes_component.at(neighbour) = nodes_component.at(front);
+        que.push(neighbour);
+      }
     }
   }
 }
@@ -103,12 +111,20 @@ void StronglyConnectedComponents(std::vector<int> & nodes_component, const std::
 {
   std::deque<size_t> Z;
   std::vector<bool> visited = std::vector<bool>(nodes_component.size(), false);
+  std::vector<std::vector<size_t>> neighbours = std::vector<std::vector<size_t>>(nodes_component.size());
+  std::vector<std::vector<size_t>> neighbours_trans = std::vector<std::vector<size_t>>(nodes_component.size());
+
+  for (const auto & corridor: corridors)
+  {
+    neighbours.at(corridor.first).push_back(corridor.second);
+    neighbours_trans.at(corridor.second).push_back(corridor.first);
+  }
 
   for (size_t i = 0; i < nodes_component.size(); i++)
   {
     if (! visited.at(i))
     {
-      DFS_fill_Z(i, Z, corridors, visited);
+      DFS_fill_Z(i, Z, neighbours_trans, visited);
     }
   }
 
@@ -119,7 +135,7 @@ void StronglyConnectedComponents(std::vector<int> & nodes_component, const std::
     if (nodes_component.at(actual) == -1) // undefined 
     { 
       nodes_component.at(actual) = amount_of_components++;
-      DFS_assign_components(actual, corridors, nodes_component);
+      DFS_assign_components(actual, neighbours, nodes_component);
     }
   }
 }
@@ -149,8 +165,6 @@ void DFS_components(size_t starting_component, std::vector<std::pair<int, int>> 
 
 
 Result find_lost_cat(const Map& map) {
-  // TODO
-
   std::vector<int> nodes_component = std::vector<int>(map.food.size(), -1);
   size_t amount_components = 0;
 
