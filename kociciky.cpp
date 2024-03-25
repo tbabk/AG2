@@ -57,169 +57,182 @@ std::ostream& operator << (std::ostream& out, Result r) {
 
 using namespace std;
 
-void DFS_fill_Z(size_t actual_node, std::deque<size_t> & Z, const std::vector<std::vector<size_t>> & neighbours, std::vector<bool> & visited)
+void fill_Z_procedure(size_t actual_node, std::deque<size_t> & Z, const std::vector<std::vector<size_t>> & neighbours, std::vector<bool> & visited)
 {
-  deque<size_t> helper;
+    std::deque<std::pair<size_t, size_t>> helper;
 
-  helper.push_front(actual_node);
+    helper.push_front({actual_node, 0});
+    visited.at(actual_node) = true;
 
-  visited.at(actual_node) = true;
-
-  while (! helper.empty())
-  {
-    bool all_visited = true;
-    size_t actual = helper.front();
-    for (const auto & neighbour: neighbours.at(actual))
+    while(! helper.empty())
     {
-      if (! visited.at(neighbour))
-      {
-        visited.at(neighbour) = true;
-        all_visited = false;
-        helper.push_front(neighbour);
-        break;
-      }
+        auto actual = helper.front();
+        bool all_visited = true;
+
+        for (size_t i = actual.second; i < neighbours.at(actual.first).size(); i++)
+        {
+            size_t neighbour = neighbours.at(actual.first).at(i); 
+            if (! visited.at(neighbour))
+            {
+                visited.at(neighbour) = true;
+                all_visited = false;
+                helper.at(0).second = i + 1; // next time start from this index when looping through neighbours
+                helper.push_front({neighbour, 0});
+                break;
+            }
+        }
+        if (all_visited)
+        {
+            helper.pop_front();
+            Z.push_front(actual.first);
+        }
     }
-    if (all_visited)
-    {
-        helper.pop_front();
-        Z.push_front(actual);
-    }
-  }
 }
 
-void DFS_assign_components(size_t actual_node, const std::vector<std::vector<size_t>> & neighbours, std::vector<int> & nodes_component)
+void fill_Z(std::deque<size_t> & Z, const Map & map)
 {
-  queue<size_t> que;
-  que.push(actual_node);
+    std::vector<std::vector<size_t>> neighbours_trans = std::vector<std::vector<size_t>>(map.food.size());
 
-  while(! que.empty())
-  {
-    size_t front = que.front();
-    que.pop();
-    for (const auto & neighbour : neighbours.at(front))
+    for (const auto & corridor: map.corridors)
     {
-      if (nodes_component.at(neighbour) == -1)
-      {
-        nodes_component.at(neighbour) = nodes_component.at(front);
-        que.push(neighbour);
-      }
+        neighbours_trans.at(corridor.second).push_back(corridor.first);
     }
-  }
+
+    std::vector<bool> visited = std::vector<bool>(map.food.size(), false);
+    
+    for (size_t i = 0; i < map.food.size(); i++)
+    {
+        if (! visited.at(i))
+        {
+            fill_Z_procedure(i, Z, neighbours_trans, visited);
+        }
+    }
 }
 
-void StronglyConnectedComponents(std::vector<int> & nodes_component, const std::vector<Corridor> & corridors, size_t & amount_of_components)
+void assign_Components_procedure(size_t actual_node, const std::vector<std::vector<size_t>> & neighbours, std::vector<int> & nodes_component)
 {
-  std::deque<size_t> Z;
-  std::vector<bool> visited = std::vector<bool>(nodes_component.size(), false);
-  std::vector<std::vector<size_t>> neighbours = std::vector<std::vector<size_t>>(nodes_component.size());
-  std::vector<std::vector<size_t>> neighbours_trans = std::vector<std::vector<size_t>>(nodes_component.size());
+    std::queue<size_t> que;
+    que.emplace(actual_node);
 
-  for (const auto & corridor: corridors)
-  {
-    neighbours.at(corridor.first).push_back(corridor.second);
-    neighbours_trans.at(corridor.second).push_back(corridor.first);
-  }
-
-  for (size_t i = 0; i < nodes_component.size(); i++)
-  {
-    if (! visited.at(i))
+    while (! que.empty())
     {
-      DFS_fill_Z(i, Z, neighbours_trans, visited);
+        size_t front = que.front();
+        que.pop();
+        for (const auto & neighbour : neighbours.at(front))
+        {
+            if (nodes_component.at(neighbour) == -1)
+            {
+                nodes_component.at(neighbour) = nodes_component.at(front);
+                que.push(neighbour);
+            }
+        }   
     }
-  }
-
-  while (! Z.empty())
-  {
-    size_t actual = Z.front();
-    Z.pop_front();
-    if (nodes_component.at(actual) == -1) // undefined 
-    { 
-      nodes_component.at(actual) = amount_of_components++;
-      DFS_assign_components(actual, neighbours, nodes_component);
-    }
-  }
 }
 
-void DFS_components(size_t starting_component, std::vector<std::pair<int, int>> & components, const std::vector<std::pair<size_t, size_t>> & inter_component_paths)
+void assign_Components(std::deque<size_t> & Z, std::vector<int> & nodes_component, const std::vector<std::vector<size_t>> & neighbours, size_t & amount_of_components)
 {
-  std::queue<size_t> que;
-  que.push(starting_component);
-  components.at(starting_component).second = components.at(starting_component).first;
-
-  while(! que.empty())
-  {
-    size_t actual = que.front();
-    que.pop();
-
-    for (const auto & int_cmp_paths: inter_component_paths)
+    while (! Z.empty())
     {
-      if (int_cmp_paths.first == actual && (components.at(int_cmp_paths.first).second + components.at(int_cmp_paths.second).first) > components.at(int_cmp_paths.second).second)
-      {
-        components.at(int_cmp_paths.second).second = (components.at(int_cmp_paths.first).second + components.at(int_cmp_paths.second).first);
-        que.push(int_cmp_paths.second);
-      }
+        size_t actual = Z.front();
+        Z.pop_front();
+        if (nodes_component.at(actual) == -1) // undefined 
+        { 
+            nodes_component.at(actual) = amount_of_components++;
+            assign_Components_procedure(actual, neighbours, nodes_component);
+        }
     }
-  }  
-  
+}
+
+struct Component
+{
+    int component_food = 0;
+    int all_food = -1;
+    std::unordered_set<size_t> neighbouring_components;
+};
+
+void BFS_components(size_t starting_component, std::vector<Component> & components)
+{
+    std::queue<size_t> que;
+    que.push(starting_component);
+    components.at(starting_component).all_food = components.at(starting_component).component_food;
+
+    while (! que.empty())
+    {
+        size_t actual_component = que.front();
+        que.pop();
+
+        for (const auto & neighbour: components.at(actual_component).neighbouring_components)
+        {
+            int act_all_food = components.at(actual_component).all_food;
+            int nb_comp_food = components.at(neighbour).component_food;
+            int nb_all_food = components.at(neighbour).all_food;
+            
+            if (act_all_food + nb_comp_food > nb_all_food)
+            {
+                components.at(neighbour).all_food = act_all_food + nb_comp_food;
+                que.push(neighbour);
+            }
+        }
+    }
 }
 
 
-Result find_lost_cat(const Map& map) {
-  std::vector<int> nodes_component = std::vector<int>(map.food.size(), -1);
-  size_t amount_components = 0;
+Result find_lost_cat(const Map& map) 
+{
+    std::deque<size_t> Z;
+    fill_Z(Z, map);
 
-  StronglyConnectedComponents(nodes_component, map.corridors, amount_components);
-  std::vector<std::pair<int, int>> components = std::vector<std::pair<int, int>>(amount_components, {0, -1});
+    std::vector<int> nodes_component = std::vector<int>(map.food.size(), -1);
+    size_t amount_components = 0;
 
-  for (size_t i = 0; i < nodes_component.size(); i++)
-  {
-    components.at(nodes_component.at(i)).first += map.food.at(i);
-  }
+    std::vector<std::vector<size_t>> neighbours = std::vector<std::vector<size_t>>(nodes_component.size());
 
-  std::vector<std::vector<bool>> helper_matrix_connection_added = std::vector<std::vector<bool>>(components.size(), std::vector<bool>(components.size(), false));
-  std::vector<std::pair<size_t, size_t>> inter_component_paths;
-
-  // add connections between the components
-  for (size_t i = 0; i < map.corridors.size(); i++)
-  {
-    size_t node1 = map.corridors.at(i).first;
-    size_t node2 = map.corridors.at(i).second;
-
-    // if they are in the different component and there is not yet a edge between those components add an edge now
-    size_t comp_node1 = nodes_component.at(node1);
-    size_t comp_node2 = nodes_component.at(node2);
-
-
-    if (comp_node1 != comp_node2 && (!helper_matrix_connection_added.at(comp_node1).at(comp_node2)))
+    for (const auto & corridor: map.corridors)
     {
-      helper_matrix_connection_added.at(comp_node1).at(comp_node2) = true; // signalize that an edge has been added between those components
-      inter_component_paths.push_back({comp_node1, comp_node2}); 
+        neighbours.at(corridor.first).push_back(corridor.second);
     }
-  }
 
+    assign_Components(Z, nodes_component, neighbours, amount_components);
 
-  DFS_components(nodes_component.at(map.s), components, inter_component_paths);
+    std::vector<Component> components = std::vector<Component>(amount_components);
 
-  unsigned bed_taken = 0;
-  int food_eaten = -1;
-
-  for (const auto & bed: map.beds)
-  {
-    if (components.at(nodes_component.at(bed)).second > food_eaten)
+    for (size_t i = 0; i < nodes_component.size(); i++)
     {
-      bed_taken = bed;
-      food_eaten = components.at(nodes_component.at(bed)).second;
+        components.at(nodes_component.at(i)).component_food += map.food.at(i);
     }
-  }
 
-  if (food_eaten == -1)
-  {
-    return Result{NO_ROOM, 42};
-  }
+    // add conection between components
 
-  unsigned food_eaten_conv = (unsigned) food_eaten;
+    for (const auto & corridor: map.corridors)
+    {
+        if (nodes_component.at(corridor.first) != nodes_component.at(corridor.second))
+        {
+            components.at(nodes_component.at(corridor.first)).neighbouring_components.insert(nodes_component.at(corridor.second));
+        }
+    }
 
-  return Result{bed_taken, food_eaten_conv};
+    BFS_components(nodes_component.at(map.s), components);
+
+    unsigned bed_taken = 0;
+    int food_eaten = -1;
+
+    for (const auto & bed: map.beds)
+    {
+        if (components.at(nodes_component.at(bed)).all_food > food_eaten)
+        {
+        bed_taken = bed;
+        food_eaten = components.at(nodes_component.at(bed)).all_food;
+        }
+    }
+
+    if (food_eaten == -1)
+    {
+        return Result{NO_ROOM, 42};
+    }
+
+    unsigned food_eaten_conv = (unsigned) food_eaten;
+
+    return Result{bed_taken, food_eaten_conv};
 }
 
 
@@ -349,5 +362,3 @@ int main() {
 }
 
 #endif
-
-
